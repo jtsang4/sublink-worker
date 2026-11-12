@@ -7,6 +7,7 @@ import { buildSelectorMembers, buildNodeSelectMembers, buildCustomRuleMembers, u
 import { emitClashRules, sanitizeClashProxyGroups } from './helpers/clashConfigUtils.js';
 import { normalizeGroupName, findGroupIndexByName } from './helpers/groupNameUtils.js';
 import { InvalidConfigError } from '../services/errors.js';
+import { normalizeSnellProxy } from '../parsers/protocols/snellParser.js';
 
 /**
  * Check if the client supports MRS (Meta Rule Set) format
@@ -130,6 +131,28 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
 
     convertProxy(proxy) {
         switch (proxy.type) {
+            case 'snell': {
+                const snell = normalizeSnellProxy(proxy);
+                if (snell.userkey || snell.udp_port || snell.obfs_uri || snell.network === 'udp') {
+                    throw new InvalidConfigError('Mihomo cannot represent Snell userkey, udp-port, obfs-uri or UDP-only nodes');
+                }
+                return {
+                    name: snell.tag,
+                    type: 'snell',
+                    server: snell.server,
+                    port: snell.server_port,
+                    psk: snell.psk,
+                    version: snell.version,
+                    udp: snell.udp ?? (snell.network !== 'tcp' && snell.version >= 3),
+                    ...(snell.reuse !== undefined ? { reuse: snell.reuse } : {}),
+                    ...(snell.obfs_mode && snell.obfs_mode !== 'none' ? {
+                        'obfs-opts': { ...snell.obfs_opts, mode: snell.obfs_mode, ...(snell.obfs_host ? { host: snell.obfs_host } : {}) }
+                    } : {}),
+                    ...(snell.client_fingerprint ? { 'client-fingerprint': snell.client_fingerprint } : {}),
+                    ...(snell.tcp_fast_open !== undefined ? { tfo: snell.tcp_fast_open } : {}),
+                    ...(snell.mode ? { mode: snell.mode } : {})
+                };
+            }
             case 'shadowsocks':
                 return {
                     name: proxy.tag,

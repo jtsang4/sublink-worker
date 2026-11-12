@@ -2,6 +2,7 @@ import { ProxyParser } from '../parsers/index.js';
 import { createStableProviderName, deepCopy, tryDecodeSubscriptionLines, decodeBase64 } from '../utils.js';
 import { createTranslator } from '../i18n/index.js';
 import { generateRules, getOutbounds, PREDEFINED_RULE_SETS } from '../config/index.js';
+import { InvalidConfigError } from '../services/errors.js';
 
 export class BaseConfigBuilder {
     constructor(inputString, baseConfig, lang, userAgent, groupByCountry = false, includeAutoSelect = true) {
@@ -139,6 +140,7 @@ export class BaseConfigBuilder {
                             }
                         }
                     } catch (error) {
+                        if (error instanceof InvalidConfigError) throw error;
                         console.error('Error processing HTTP subscription:', error);
                     }
                     continue;

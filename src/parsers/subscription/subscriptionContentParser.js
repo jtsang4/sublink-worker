@@ -4,6 +4,7 @@ import { convertYamlProxyToObject } from '../convertYamlProxyToObject.js';
 import { convertSurgeProxyToObject } from '../convertSurgeProxyToObject.js';
 import { convertSurgeIniToJson } from '../../utils/surgeConfigParser.js';
 import { parsePluginString } from '../protocols/shadowsocksParser.js';
+import { InvalidConfigError } from '../../services/errors.js';
 
 /**
  * Non-proxy outbound types in Sing-Box that should be filtered out from proxies list
@@ -142,6 +143,7 @@ export function parseClashYaml(content) {
             }
         }
     } catch (e) {
+        if (e instanceof InvalidConfigError) throw e;
         // Not valid YAML or doesn't have proxies array
     }
     return null;
@@ -193,6 +195,7 @@ export function parseSurgeIni(content) {
             }
         }
     } catch (e) {
+        if (e instanceof InvalidConfigError) throw e;
         // Not valid Surge INI
         console.warn('Surge INI parsing failed:', e?.message || e);
     }

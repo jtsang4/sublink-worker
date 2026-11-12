@@ -49,7 +49,9 @@
 ## ✨ Features
 
 ### Supported Protocols
-ShadowSocks • VMess • VLESS • Hysteria2 • Trojan • TUIC
+ShadowSocks • VMess • VLESS • Hysteria2 • Trojan • TUIC • Snell
+
+Snell accepts `snell://<URL-encoded-psk>@host:port?version=4#name`, Surge proxy lines/INI, Clash YAML, and sing-box JSON. Supported outputs are Surge, Mihomo, and sing-box 1.14+ (`singbox_version=1.14` or an appropriate User-Agent). sing-box supports Snell v4/v6 and converts v5 to v4 compatibility mode without QUIC Proxy Mode; v1–v3 require Surge or Mihomo. Unsupported Snell versions or transport options are dropped for sing-box so mixed subscriptions stay loadable, while Surge and Mihomo return an error for options they cannot represent.
 
 ### Client Support
 Sing-Box • Clash • Xray/V2Ray • Surge

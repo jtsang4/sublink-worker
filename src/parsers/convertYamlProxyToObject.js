@@ -1,4 +1,5 @@
 import { parseBool } from '../utils.js';
+import { normalizeSnellProxy } from './protocols/snellParser.js';
 
 export function convertYamlProxyToObject(p) {
     if (!p || typeof p !== 'object' || !p.type) return null;
@@ -9,6 +10,23 @@ export function convertYamlProxyToObject(p) {
         return Array.isArray(value) ? value : [value];
     };
     switch (type) {
+        case 'snell':
+            return normalizeSnellProxy({
+                tag: name,
+                type: 'snell',
+                server: p.server,
+                server_port: p.port,
+                psk: p.psk,
+                version: p.version,
+                udp: p.udp,
+                reuse: p.reuse,
+                obfs_mode: p['obfs-opts']?.mode,
+                obfs_host: p['obfs-opts']?.host,
+                obfs_opts: p['obfs-opts'],
+                client_fingerprint: p['client-fingerprint'],
+                tcp_fast_open: p.tfo,
+                mode: p.mode
+            });
         case 'ss':
         case 'shadowsocks':
             return {

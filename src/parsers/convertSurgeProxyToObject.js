@@ -1,3 +1,5 @@
+import { normalizeSnellProxy } from './protocols/snellParser.js';
+
 /**
  * Parse Surge proxy line format and convert to internal (Sing-Box) format
  * 
@@ -65,13 +67,13 @@ export function convertSurgeProxyToObject(line) {
 
     // Split by comma to get parts
     const parts = rest.split(',').map(p => p.trim());
-    if (parts.length < 3) return null;
+    if (parts.length < 3 && parts[0].toLowerCase() !== 'snell') return null;
 
     const type = parts[0].toLowerCase();
     const server = parts[1];
     const port = parseInt(parts[2]);
 
-    if (!server || isNaN(port)) return null;
+    if (type !== 'snell' && (!server || isNaN(port))) return null;
 
     // Parse remaining parameters
     const params = parseParams(parts.slice(3));
@@ -101,6 +103,23 @@ export function convertSurgeProxyToObject(line) {
     };
 
     switch (type) {
+        case 'snell':
+            return normalizeSnellProxy({
+                tag,
+                type: 'snell',
+                server,
+                server_port: parts[2],
+                psk: params.psk,
+                version: params.version,
+                reuse: params.reuse,
+                udp: params['udp-relay'],
+                obfs_mode: params.obfs,
+                obfs_host: params['obfs-host'],
+                obfs_uri: params['obfs-uri'],
+                udp_port: params['udp-port'] !== undefined ? Number(params['udp-port']) : undefined,
+                tcp_fast_open: params.tfo,
+                mode: params.mode
+            });
         case 'ss':
         case 'shadowsocks':
             return {

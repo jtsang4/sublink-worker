@@ -1,14 +1,15 @@
 import { decodeBase64 } from '../../utils.js';
 import { parseSubscriptionContent } from './subscriptionContentParser.js';
+import { InvalidConfigError } from '../../services/errors.js';
 
-const SUBSCRIPTION_URI_PATTERN = /^(ss|vmess|vless|hysteria|hysteria2|hy2|trojan|tuic|anytls|http|https):\/\//i;
+const SUBSCRIPTION_URI_PATTERN = /^(ss|vmess|vless|hysteria|hysteria2|hy2|trojan|tuic|anytls|snell|http|https):\/\//i;
 
 function hasSubscriptionUriLine(content) {
     return content
         .split(/\r?\n/)
         .map(line => line.trim())
         .filter(Boolean)
-        .some(line => SUBSCRIPTION_URI_PATTERN.test(line));
+        .some(line => SUBSCRIPTION_URI_PATTERN.test(line) || /^.+?=\s*snell\s*,/i.test(line));
 }
 
 function isLikelyTomlConfig(content) {
@@ -62,6 +63,8 @@ function normalizeBase64Candidate(text) {
  * @returns {string} - Decoded content
  */
 function decodeContent(text) {
+    // URI components must stay encoded until their protocol parser reads them.
+    if (isPlainSubscriptionContent(text)) return text.trim();
     const urlDecodedText = decodeUriComponentIfNeeded(text);
     if (isPlainSubscriptionContent(urlDecodedText)) {
         return urlDecodedText;
@@ -73,7 +76,8 @@ function decodeContent(text) {
     }
 
     try {
-        const decodedText = decodeUriComponentIfNeeded(decodeBase64(base64Candidate));
+        const decoded = decodeBase64(base64Candidate);
+        const decodedText = isPlainSubscriptionContent(decoded) ? decoded.trim() : decodeUriComponentIfNeeded(decoded);
         if (isPlainSubscriptionContent(decodedText)) {
             return decodedText;
         }
@@ -140,6 +144,7 @@ export async function fetchSubscription(url, userAgent) {
 
         return parseSubscriptionContent(decodedText);
     } catch (error) {
+        if (error instanceof InvalidConfigError) throw error;
         console.error('Error fetching or parsing HTTP(S) content:', error);
         return null;
     }

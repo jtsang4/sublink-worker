@@ -5,6 +5,7 @@ import { deepCopy, groupProxiesByCountry } from '../utils.js';
 import { addProxyWithDedup } from './helpers/proxyHelpers.js';
 import { buildSelectorMembers as buildSelectorMemberList, buildNodeSelectMembers, buildCustomRuleMembers, uniqueNames } from './helpers/groupBuilder.js';
 import { normalizeGroupName } from './helpers/groupNameUtils.js';
+import { normalizeSnellProxy } from '../parsers/protocols/snellParser.js';
 
 const RULE_SET_HTTP_CLIENT_TAG = 'rule-set-download';
 const ANYTLS_OPTION_KEYS = {
@@ -102,6 +103,26 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
     }
 
     convertProxy(proxy) {
+        if (proxy.type === 'snell') {
+            const snell = normalizeSnellProxy(proxy);
+            // Snell outbounds arrived in sing-box 1.14 (v4/v6, plus v5 in v4 compatibility mode);
+            // drop incompatible nodes so mixed subscriptions stay loadable.
+            if (this.singboxVersion !== '1.14') return null;
+            if (![4, 5, 6].includes(snell.version)) return null;
+            if (snell.udp_port || snell.obfs_uri ||
+                (snell.obfs_mode && !['none', 'http', 'tls'].includes(snell.obfs_mode)) ||
+                Object.keys(snell.obfs_opts || {}).some(key => !['mode', 'host'].includes(key))) {
+                return null;
+            }
+            const result = { ...snell, version: snell.version === 5 ? 4 : snell.version };
+            if (snell.version === 6) {
+                delete result.obfs_mode;
+                delete result.obfs_host;
+            }
+            if (snell.udp === false) result.network = 'tcp';
+            for (const key of ['udp', 'obfs_opts', 'client_fingerprint', 'obfs_uri', 'udp_port']) delete result[key];
+            return result;
+        }
         // sing-box has no VLESS encryption option and the server rejects clients
         // without it, so emitting the node would only add a dead outbound.
         if (proxy.type === 'vless' && proxy.encryption) return null;

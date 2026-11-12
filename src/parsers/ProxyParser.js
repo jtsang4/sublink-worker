@@ -5,7 +5,10 @@ import { parseHysteria2 } from './protocols/hysteria2Parser.js';
 import { parseTrojan } from './protocols/trojanParser.js';
 import { parseTuic } from './protocols/tuicParser.js';
 import { parseAnytls } from './protocols/anytlsParser.js';
+import { parseSnell } from './protocols/snellParser.js';
+import { convertSurgeProxyToObject } from './convertSurgeProxyToObject.js';
 import { fetchSubscription } from './subscription/httpSubscriptionFetcher.js';
+import { InvalidConfigError } from '../services/errors.js';
 
 const protocolParsers = {
     ss: parseShadowsocks,
@@ -18,7 +21,8 @@ const protocolParsers = {
     https: fetchSubscription,
     trojan: parseTrojan,
     tuic: parseTuic,
-    anytls: parseAnytls
+    anytls: parseAnytls,
+    snell: parseSnell
 };
 
 export class ProxyParser {
@@ -29,16 +33,24 @@ export class ProxyParser {
         const trimmed = url.trim();
         const type = trimmed.split('://')[0].toLowerCase();
         const parser = protocolParsers[type];
-        if (!parser) {
+        const isStandaloneSnell = !parser && /^.+?=\s*snell\s*,/i.test(trimmed);
+        if (!parser && !isStandaloneSnell) {
             return undefined;
         }
         try {
-            return await parser(trimmed, userAgent);
+            return isStandaloneSnell
+                ? convertSurgeProxyToObject(trimmed)
+                : await parser(trimmed, userAgent);
         } catch (error) {
+            // Preserve explicit validation errors from structured remote subscriptions.
+            if ((type === 'http' || type === 'https') && error instanceof InvalidConfigError) {
+                throw error;
+            }
             // One malformed link must not fail the whole request or, inside a
             // subscription, drop every link after it. The link is not logged
             // because it carries credentials.
-            console.warn(`Skipping malformed ${type} link:`, error?.message || error);
+            const label = isStandaloneSnell ? 'snell' : type;
+            console.warn(`Skipping malformed ${label} link:`, error?.message || error);
             return undefined;
         }
     }

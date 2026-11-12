@@ -113,7 +113,7 @@ export function tryDecodeSubscriptionLines(input, { decodeUriComponent = false }
 			.map(segment => segment.trim())
 			.filter(segment => segment !== '');
 
-		if (segments.length > 1 && segments.some(segment => segment.includes('://'))) {
+		if (segments.length > 1 && segments.some(segment => segment.includes('://') || /^.+?=\s*snell\s*,/i.test(segment))) {
 			return segments;
 		}
 

@@ -3,6 +3,8 @@ import { groupProxiesByCountry } from '../utils.js';
 import { SURGE_CONFIG, SURGE_SITE_RULE_SET_BASEURL, SURGE_IP_RULE_SET_BASEURL, generateRules, getOutbounds, PREDEFINED_RULE_SETS, DIRECT_DEFAULT_RULES } from '../config/index.js';
 import { addProxyWithDedup } from './helpers/proxyHelpers.js';
 import { buildSelectorMembers, buildNodeSelectMembers, buildCustomRuleMembers, uniqueNames } from './helpers/groupBuilder.js';
+import { normalizeSnellProxy } from '../parsers/protocols/snellParser.js';
+import { InvalidConfigError } from '../services/errors.js';
 
 export class SurgeConfigBuilder extends BaseConfigBuilder {
     constructor(inputString, selectedRules, customRules, baseConfig, lang, userAgent, groupByCountry, includeAutoSelect = true) {
@@ -49,6 +51,41 @@ export class SurgeConfigBuilder extends BaseConfigBuilder {
     convertProxy(proxy) {
         let surgeProxy;
         switch (proxy.type) {
+            case 'snell': {
+                const snell = normalizeSnellProxy(proxy);
+                if (snell.userkey || snell.network === 'udp' ||
+                    (snell.version >= 3 && (snell.udp === false || snell.network === 'tcp')) ||
+                    (snell.obfs_mode && !['none', 'http', 'tls'].includes(snell.obfs_mode)) ||
+                    Object.keys(snell.obfs_opts || {}).some(key => !['mode', 'host'].includes(key))) {
+                    throw new InvalidConfigError('Surge cannot represent these Snell transport options');
+                }
+                if (snell.version >= 4 && snell.obfs_mode === 'tls') {
+                    throw new InvalidConfigError('Surge Snell v4 and later do not support TLS obfuscation');
+                }
+                const fields = {
+                    psk: snell.psk,
+                    version: snell.version,
+                    reuse: snell.reuse,
+                    obfs: snell.obfs_mode === 'none' ? undefined : snell.obfs_mode,
+                    'obfs-host': snell.obfs_host,
+                    'obfs-uri': snell.obfs_uri,
+                    'udp-port': snell.udp_port,
+                    tfo: snell.tcp_fast_open,
+                    mode: snell.mode
+                };
+                if (/[\r\n,=]/.test(snell.tag) || /^[#;]/.test(snell.tag)) {
+                    throw new InvalidConfigError('Snell node name contains characters unsupported by Surge');
+                }
+                surgeProxy = `${snell.tag} = snell, ${snell.server}, ${snell.server_port}`;
+                for (const [key, value] of Object.entries(fields)) {
+                    if (value === undefined) continue;
+                    if (/[\r\n,]/.test(String(value)) || String(value) !== String(value).trim()) {
+                        throw new InvalidConfigError(`Snell ${key} contains characters unsupported by Surge`);
+                    }
+                    surgeProxy += `, ${key}=${value}`;
+                }
+                break;
+            }
             case 'shadowsocks':
                 surgeProxy = `${proxy.tag} = ss, ${proxy.server}, ${proxy.server_port}, encrypt-method=${proxy.method}, password=${proxy.password}`;
                 break;
