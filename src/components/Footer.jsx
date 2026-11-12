@@ -1,6 +1,7 @@
 /** @jsxRuntime automatic */
 /** @jsxImportSource hono/jsx */
 import { APP_NAME, GITHUB_REPO, DOCS_URL, APP_VERSION } from '../constants.js';
+import { APP_COMMIT } from '../buildInfo.generated.js';
 
 export const Footer = () => {
     const currentYear = new Date().getFullYear();
@@ -19,7 +20,7 @@ export const Footer = () => {
                             class="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors font-mono"
                             title={`View release notes for v${APP_VERSION}`}
                         >
-                            v{APP_VERSION}
+                            v{APP_VERSION}{APP_COMMIT ? ` (${APP_COMMIT})` : ''}
                         </a>
                     </div>
 
